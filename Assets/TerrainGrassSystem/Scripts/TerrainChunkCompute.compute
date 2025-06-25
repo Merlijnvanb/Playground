@@ -1,14 +1,63 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
+#pragma kernel GenerateTerrainChunk;
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float4> Result;
+struct VertData
+{
+    float3 position;
+    float height;
+};
+
+struct TriData
+{
+    int3 tri1;
+    int3 tri2;
+};
+
+RWStructuredBuffer<VertData> _VertBuffer;
+RWStructuredBuffer<TriData> _TriBuffer;
+Texture2D _HeightMap;
+SamplerState sampler_Heightmap;
+
+int _Dimension, _ChunkResolution, _ChunkDivisions, _XOffset, _YOffset;
 
 [numthreads(8,8,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void GenerateTerrainChunk (uint3 id : SV_DispatchThreadID)
 {
-    // TODO: insert actual code here!
+    if (id.x < _ChunkResolution + 1 && id.y < _ChunkResolution + 1)
+    {
+        VertData vert;
+        float3 pos = 0.0f;
 
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+        float dimension = (float)_Dimension; // 10
+        float chunkResolution = (float)_ChunkResolution; // 3
+        float chunkDivisions = (float)_ChunkDivisions; // 1
+        float chunkDimension = dimension / chunkDivisions;
+
+        float xNorm = id.x / chunkResolution - (0.5f * chunkDivisions);
+        float yNorm = id.y / chunkResolution - (0.5f * chunkDivisions);
+        pos.x = xNorm * chunkDimension + chunkDimension * _XOffset;
+        pos.z = yNorm * chunkDimension + chunkDimension * _YOffset;
+
+        vert.position = pos;
+        vert.height = 0.0f;
+
+        if (id.x < _ChunkResolution && id.y < _ChunkResolution)
+        {
+            int i = id.x + id.y * (_ChunkResolution + 1);
+            int3 t1, t2;
+
+            t1.x = i;
+            t1.y = i + _ChunkResolution + 1;
+            t1.z = i + _ChunkResolution + 2;
+
+            t2.x = i;
+            t2.y = i + _ChunkResolution + 2;
+            t2.z = i + 1;
+
+            _TriBuffer[i].tri1 = t1;
+            _TriBuffer[i].tri2 = t2;
+        }
+
+        _VertBuffer[id.x + id.y * (_ChunkResolution + 1)] = vert;
+    }
 }
