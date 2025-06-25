@@ -7,14 +7,8 @@ struct VertData
     float height;
 };
 
-struct TriData
-{
-    int3 tri1;
-    int3 tri2;
-};
-
 RWStructuredBuffer<VertData> _VertBuffer;
-RWStructuredBuffer<TriData> _TriBuffer;
+RWStructuredBuffer<int> _IndexBuffer;
 Texture2D _HeightMap;
 SamplerState sampler_Heightmap;
 
@@ -44,18 +38,15 @@ void GenerateTerrainChunk (uint3 id : SV_DispatchThreadID)
         if (id.x < _ChunkResolution && id.y < _ChunkResolution)
         {
             int i = id.x + id.y * (_ChunkResolution + 1);
-            int3 t1, t2;
+            int indexInsert = i * 6;
 
-            t1.x = i;
-            t1.y = i + _ChunkResolution + 1;
-            t1.z = i + _ChunkResolution + 2;
+            _IndexBuffer[indexInsert] = i;
+            _IndexBuffer[indexInsert+1] = i + _ChunkResolution + 1;
+            _IndexBuffer[indexInsert+2] = i + _ChunkResolution + 2;
 
-            t2.x = i;
-            t2.y = i + _ChunkResolution + 2;
-            t2.z = i + 1;
-
-            _TriBuffer[i].tri1 = t1;
-            _TriBuffer[i].tri2 = t2;
+            _IndexBuffer[indexInsert+3] = i;
+            _IndexBuffer[indexInsert+4] = i + _ChunkResolution + 2;
+            _IndexBuffer[indexInsert+5] = i + 1;
         }
 
         _VertBuffer[id.x + id.y * (_ChunkResolution + 1)] = vert;

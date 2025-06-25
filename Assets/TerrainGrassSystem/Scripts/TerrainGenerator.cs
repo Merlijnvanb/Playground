@@ -5,7 +5,7 @@ using static System.Runtime.InteropServices.Marshal;
 using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
-[ExecuteInEditMode, RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
+[ExecuteInEditMode]
 public class TerrainGenerator : MonoBehaviour
 {
     public int PlaneDimension = 10;
@@ -36,62 +36,65 @@ public class TerrainGenerator : MonoBehaviour
 
     public struct TerrainChunk
     {
+        public ComputeBuffer ArgsBuffer;
         public ComputeBuffer VertexBuffer;
-        public ComputeBuffer TriangleBuffer;
+        public ComputeBuffer IndexBuffer;
     }
     
     TerrainChunk[] chunks;
+    uint[] args;
     
     void OnEnable()
     {
-        chunks = new TerrainChunk[ChunkResolution * ChunkResolution];
-        
         chunkAmount = ChunkDivisions * ChunkDivisions;
         chunkVertDimension = ChunkResolution + 1;
         chunkVertCount = chunkVertDimension * chunkVertDimension;
-        
-        if (meshFilter == null)
-        {
-            meshFilter = GetComponent<MeshFilter>();
-        }
-
-        if (meshRenderer == null)
-        {
-            meshRenderer = GetComponent<MeshRenderer>();
-        }
-
-        if (meshRenderer.sharedMaterial != Material)
-        {
-            meshRenderer.sharedMaterial = Material;
-        }
         
         ChunkCompute.SetInt("_Dimension", PlaneDimension);
         ChunkCompute.SetInt("_ChunkResolution", ChunkResolution);
         ChunkCompute.SetInt("_ChunkDivisions", ChunkDivisions);
         ChunkCompute.SetTexture(0, "_Heightmap", Heightmap);
-
-        chunks[0] = InitiateChunk(0, 0);
-
-        var dataArray = new VertData[chunkVertCount];
-        chunks[0].VertexBuffer.GetData(dataArray);
-
-        foreach (var data in dataArray)
-        {
-            Debug.Log(data.Position);
-        }
         
-        FreeChunk(chunks[0]);
+        args = new uint[5] { 0, 0, 0, 0, 0 };
+        
+        InitializeChunksAll();
     }
 
+    void OnDisable()
+    {
+        FreeChunksAll();
+    }
+
+    private void InitializeChunksAll()
+    {
+        chunks = new TerrainChunk[ChunkResolution * ChunkResolution];
+
+        for (int x = 0; x < ChunkResolution; x++)
+        {
+            for (int y = 0; y < ChunkResolution; y++)
+            {
+                chunks[x + y * ChunkResolution] = InitiateChunk(x, y);
+            }
+        }
+    }
+
+    private void FreeChunksAll()
+    {
+        for (int i = 0; i < ChunkResolution * ChunkResolution; i++)
+        {
+            FreeChunk(chunks[i]);
+        }
+    }
+    
     private TerrainChunk InitiateChunk(int xOffset, int yOffset)
     {
         var chunk = new TerrainChunk();
 
         chunk.VertexBuffer = new ComputeBuffer(chunkVertCount, SizeOf(typeof(VertData)));
-        chunk.TriangleBuffer = new ComputeBuffer(ChunkResolution * ChunkResolution, SizeOf(typeof(TriData)));
+        chunk.IndexBuffer = new ComputeBuffer((ChunkResolution * ChunkResolution) * 6, sizeof(int));
         
         ChunkCompute.SetBuffer(0, "_VertBuffer", chunk.VertexBuffer);
-        ChunkCompute.SetBuffer(0, "_TriBuffer", chunk.TriangleBuffer);
+        ChunkCompute.SetBuffer(0, "_IndexBuffer", chunk.IndexBuffer);
         ChunkCompute.SetInt("_XOffset", xOffset);
         ChunkCompute.SetInt("_YOffset", yOffset);
         ChunkCompute.Dispatch(0, Mathf.CeilToInt(chunkVertDimension / 8f), Mathf.CeilToInt(chunkVertDimension / 8f), 1);
@@ -103,8 +106,8 @@ public class TerrainGenerator : MonoBehaviour
     {
         chunk.VertexBuffer.Release();
         chunk.VertexBuffer = null;
-        chunk.TriangleBuffer.Release();
-        chunk.TriangleBuffer = null;
+        chunk.IndexBuffer.Release();
+        chunk.IndexBuffer = null;
     }
 
 //     private void GenerateMesh()
