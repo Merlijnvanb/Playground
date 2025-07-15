@@ -1,0 +1,64 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel GenerateTerrainChunk;
+
+struct VertData
+{
+    float3 position;
+    float2 uv;
+};
+
+RWStructuredBuffer<VertData> _VertBuffer;
+RWStructuredBuffer<int> _IndexBuffer;
+Texture2D<float4> _HeightMap;
+SamplerState sampler_HeightMap;
+
+int _Dimension, _ChunkResolution, _ChunkDivisions, _XOffset, _YOffset;
+float _HeightMapIntensity, _ChunkDimension;
+
+[numthreads(8,8,1)]
+void GenerateTerrainChunk (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x < (uint)_ChunkResolution + 1 && id.y < (uint)_ChunkResolution + 1)
+    {        
+        VertData vert;
+        float3 pos = 0.0f;
+        float2 uv = 0.0f;
+
+        float dimension = (float)_Dimension; // 10
+        float chunkResolution = (float)_ChunkResolution; // 3
+        float chunkDivisions = (float)_ChunkDivisions; // 1
+        float chunkDimension = _ChunkDimension;
+
+        float xNorm = ((float)id.x / chunkResolution) - 0.5f * chunkDivisions;
+        float yNorm = ((float)id.y / chunkResolution) - 0.5f * chunkDivisions;
+        pos.x = xNorm * chunkDimension + chunkDimension * _XOffset;
+        pos.z = yNorm * chunkDimension + chunkDimension * _YOffset;
+
+        float halfDimension = dimension / 2.0f;
+        uv.x = clamp((pos.x + halfDimension) / dimension, 0.0f, 1.0f);
+        uv.y = clamp((pos.z + halfDimension) / dimension, 0.0f, 1.0f);
+        
+        float4 heightmap = _HeightMap.SampleLevel(sampler_HeightMap, uv, 0);
+        pos.y = heightmap.r * _HeightMapIntensity;
+
+        vert.position = pos;
+        vert.uv = uv;
+
+        if (id.x < (uint)_ChunkResolution && id.y < (uint)_ChunkResolution)
+        {
+            int quadIndex = id.x + id.y * _ChunkResolution;
+            int vertIndex = id.x + id.y * (_ChunkResolution + 1);
+            int insertIndex = quadIndex * 6;
+
+            _IndexBuffer[insertIndex] = vertIndex;
+            _IndexBuffer[insertIndex+1] = vertIndex + _ChunkResolution + 1;
+            _IndexBuffer[insertIndex+2] = vertIndex + _ChunkResolution + 2;
+
+            _IndexBuffer[insertIndex+3] = vertIndex;
+            _IndexBuffer[insertIndex+4] = vertIndex + _ChunkResolution + 2;
+            _IndexBuffer[insertIndex+5] = vertIndex + 1;
+        }
+
+        _VertBuffer[id.x + id.y * (_ChunkResolution + 1)] = vert;
+    }
+}
