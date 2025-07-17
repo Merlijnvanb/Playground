@@ -206,7 +206,7 @@ Transform:
   m_GameObject: {fileID: 332743807}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 31.55, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -454,12 +454,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   HeightSystem: {fileID: 1328055918}
-  planeDimension: 300
-  chunkDivisions: 10
-  chunkResolution: 30
+  planeDimension: 1000
+  chunkDivisions: 16
+  chunkResolution: 50
   material: {fileID: 2100000, guid: 17277a1d4f31c774fa3a20d2a1dd896d, type: 2}
   chunkCompute: {fileID: 7200000, guid: 724b4fc4b3f345f4982a2e9ec0835822, type: 3}
-  debugBounds: 0
+  debugBounds: 1
 --- !u!4 &1369616893
 Transform:
   m_ObjectHideFlags: 0
